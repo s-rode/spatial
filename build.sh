@@ -51,7 +51,10 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 </plist>
 PLIST
 
-codesign --force --sign - "$APP" >/dev/null 2>&1
+# Hardened runtime: no DYLD_* injection, no unsigned libraries, so no other
+# code can borrow this app's System Audio Recording permission.
+codesign --force --options runtime --entitlements Spatial.entitlements --sign - "$APP"
+codesign --verify --strict "$APP"
 echo "Built $APP ($VERSION)"
 
 if [ "$1" = "run" ]; then open "$APP"; fi

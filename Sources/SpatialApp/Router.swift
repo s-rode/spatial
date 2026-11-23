@@ -101,8 +101,13 @@ final class Router {
     }
 
     /// Bundle ID prefix of the app to spatialize. Spotify's audio helpers
-    /// share the prefix. Change with `defaults write com.srode.spatial target <id>`.
-    let target = UserDefaults.standard.string(forKey: "target") ?? "com.spotify.client"
+    /// share the prefix. Fixed on purpose: a settable target (upstream's
+    /// `target` default) let any local process point this app's audio-capture
+    /// permission at another app, and an empty prefix matched every process.
+    static let target = "com.spotify.client."
+    static func isTarget(_ bundleID: String) -> Bool {
+        bundleID == "com.spotify.client" || bundleID.hasPrefix(target)
+    }
 
     private(set) var state = State.off { didSet { if state != oldValue { onChange?() } } }
     private(set) var engine: SpatialEngine
@@ -189,7 +194,7 @@ final class Router {
     }
 
     var targetIsPlaying: Bool {
-        CA.processes().contains { $0.bundleID.hasPrefix(target) && $0.isPlaying }
+        CA.processes().contains { Self.isTarget($0.bundleID) && $0.isPlaying }
     }
 
     // MARK: Deciding when to (re)build
@@ -207,7 +212,7 @@ final class Router {
         // Never tap ourselves (a `target` prefix that matches Spatial would
         // feed its own output back in).
         let me = getpid()
-        let targets = CA.processes().filter { $0.bundleID.hasPrefix(target) && $0.pid != me }.map(\.object).sorted()
+        let targets = CA.processes().filter { Self.isTarget($0.bundleID) && $0.pid != me }.map(\.object).sorted()
         guard !targets.isEmpty, let output = CA.defaultOutput() else {
             teardown()
             state = .waiting
@@ -349,10 +354,13 @@ final class Router {
         let scratch = self.scratch
         let engine = self.engine
         var capture: Capture?
+        #if DEBUG
+        // Diagnostics only: recording to disk is compiled out of release builds.
         if let i = args.firstIndex(of: "--capture"), i + 1 < args.count {
             let secs = args.firstIndex(of: "--capture-seconds").flatMap { Double(args[$0 + 1]) } ?? 8
             capture = Capture(dir: args[i + 1], seconds: secs, rate: rate)
         }
+        #endif
         captureSlot.current = capture
         let captureSlot = self.captureSlot
         try check(AudioDeviceCreateIOProcIDWithBlock(&procID, deviceID, nil) { _, input, _, output, _ in
@@ -425,6 +433,7 @@ final class Router {
 
     /// Starts a side-by-side capture (Spotify in, this app out) while
     /// running, without rebuilding anything. Used by the `captureTo` default.
+    #if DEBUG
     func startCapture(dir: String, seconds: Double) -> Bool {
         guard case let .running(_, rate, _) = state else { return false }
         let capture = Capture(dir: dir, seconds: seconds, rate: rate)
@@ -433,6 +442,7 @@ final class Router {
         capture.start(rate: rate)
         return true
     }
+    #endif
 
     private static func inputFrames(_ list: UnsafePointer<AudioBufferList>, stream: Int) -> Int {
         let buffers = UnsafeMutableAudioBufferListPointer(UnsafeMutablePointer(mutating: list))

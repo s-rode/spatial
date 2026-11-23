@@ -72,8 +72,6 @@ within -100 dB.
 **The recording indicator.** macOS may show its recording indicator while Spatial runs,
 because taking another app's sound uses the same permission as recording it.
 
-**Other apps.** `defaults write com.srode.spatial target <bundle id prefix>`, then relaunch Spatial.
-
 ## How it works
 
 1. A Core Audio **process tap** (macOS 14.2+) takes Spotify's output and mutes it at the speakers.

@@ -238,7 +238,7 @@ func runSmokeTest() -> Bool {
 
 /// What the app would see right now, without tapping anything.
 func runProbe() {
-    let target = UserDefaults.standard.string(forKey: "target") ?? "com.spotify.client"
+    let target = Router.target
     if let output = CA.defaultOutput() {
         print("output: \(CA.name(output))  kind \(CA.kind(of: output).rawValue)  \(Int(CA.sampleRate(output))) Hz  "
               + String(format: "latency %.0f ms", CA.latency(of: output) * 1000))
@@ -248,7 +248,7 @@ func runProbe() {
     print("target: \(target)*")
     print("system audio recording: \(AudioCapturePermission.status)")
     for p in CA.processes().sorted(by: { $0.bundleID < $1.bundleID }) {
-        let mark = p.bundleID.hasPrefix(target) ? "→" : " "
+        let mark = Router.isTarget(p.bundleID) ? "→" : " "
         print("\(mark) \(p.isPlaying ? "▶" : " ") pid \(p.pid)\t\(p.bundleID.isEmpty ? "(no bundle id)" : p.bundleID)")
     }
 }

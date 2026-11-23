@@ -72,11 +72,13 @@ func runTransparencyTest() -> Bool {
         profile.append(String(format: "%.4f", p))
     }
     print("recorded \(got) frames, peak per 0.25 s: \(profile.joined(separator: " "))")
+    #if DEBUG
     if let dir = ProcessInfo.processInfo.environment["DUMP"] ?? (args.firstIndex(of: "--dump").map { args[$0 + 1] }) {
         let src = (0..<total).flatMap { [srcL[$0], srcR[$0]] }
         try? src.withUnsafeBytes { Data($0) }.write(to: URL(fileURLWithPath: dir + "/source.f32"))
         try? Data(bytes: rec, count: got * 8).write(to: URL(fileURLWithPath: dir + "/recorded.f32"))
     }
+    #endif
     // Find where the source starts in the recording with a 4096-sample template.
     let template = 4096, offset = 24_000
     var bestLag = -1

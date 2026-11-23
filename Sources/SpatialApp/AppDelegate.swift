@@ -114,16 +114,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func tick() {
-        // `defaults write com.srode.spatial captureTo <dir>` (+ optional
-        // captureSeconds) records Spotify in vs this app out, live.
+        #if DEBUG
+        // Debug builds only: `defaults write com.srode.spatial captureTo <dir>`
+        // (+ optional captureSeconds) records Spotify in vs this app out, live.
+        // Compiled out of release builds so no other local process can use
+        // this app's audio-capture permission to write audio to disk.
         let d = UserDefaults.standard
         d.synchronize()
         if let dir = d.string(forKey: "captureTo") {
             d.removeObject(forKey: "captureTo")
-            let secs = d.double(forKey: "captureSeconds") > 0 ? d.double(forKey: "captureSeconds") : 30
+            let secs = min(d.double(forKey: "captureSeconds") > 0 ? d.double(forKey: "captureSeconds") : 30, 120)
             let ok = router.startCapture(dir: dir, seconds: secs)
             FileHandle.standardError.write("capture \(ok ? "started" : "skipped (not running)") -> \(dir)\n".data(using: .utf8)!)
         }
+        #endif
         let peak = router.takePeak()
         let playing = router.targetIsPlaying
         if case .running = router.state, playing, peak == 0 {
