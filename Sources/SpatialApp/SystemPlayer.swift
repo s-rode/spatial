@@ -270,7 +270,7 @@ final class SystemPlayer {
             readSettings()
         }
         let timer = DispatchSource.makeTimerSource(flags: .strict, queue: queue)
-        timer.schedule(deadline: .now(), repeating: .milliseconds(5), leeway: .milliseconds(1))
+        timer.schedule(deadline: .now(), repeating: .milliseconds(10), leeway: .milliseconds(2))
         timer.setEventHandler { [weak self] in self?.pump() }
         timer.resume()
         self.timer = timer

@@ -94,6 +94,7 @@ final class Router {
     enum State: Equatable {
         case off
         case waiting                      // the target app isn't playing through Core Audio
+        case paused                       // the target app is open but silent: nothing built
         case running(device: String, rate: Double, kind: OutputKind)
         case needsPermission              // System Audio Recording was denied
         case airPlay(device: String)      // left alone: no Spatial Audio menu there
@@ -142,6 +143,22 @@ final class Router {
     /// still setting up, AirPods mid-connect).
     private var failedBuilds = 0
     private var enabled = false
+
+    /// Battery: while Spotify is open but paused, a running tap, private
+    /// device and spatial renderer still process silence (measured: about a
+    /// fifth of a core across this app and coreaudiod) and keep the output
+    /// awake. So after this long without Spotify playing, everything is torn
+    /// down, and rebuilt the moment Spotify starts again. Short pauses and
+    /// track changes stay within it and cost nothing.
+    static let idleTeardownDelay: TimeInterval = 10
+    private var idleTeardown: DispatchWorkItem?
+    /// Watches each target process's "is playing" flag, so starting and
+    /// stopping are noticed without polling.
+    private var processListeners: [PropertyListener] = []
+    private var watchedProcesses: [AudioObjectID] = []
+    /// Whether any target process is playing, as of the last refresh or
+    /// change notification.
+    private(set) var targetIsPlaying = false
 
     var headTracking = HeadTracking.off { didSet { engine.setHeadTracking(headTracking) } }
 
@@ -193,10 +210,6 @@ final class Router {
         return p
     }
 
-    var targetIsPlaying: Bool {
-        CA.processes().contains { Self.isTarget($0.bundleID) && $0.isPlaying }
-    }
-
     // MARK: Deciding when to (re)build
 
     private func refresh(force: Bool = false) {
@@ -212,11 +225,27 @@ final class Router {
         // Never tap ourselves (a `target` prefix that matches Spatial would
         // feed its own output back in).
         let me = getpid()
-        let targets = CA.processes().filter { Self.isTarget($0.bundleID) && $0.pid != me }.map(\.object).sorted()
+        let processes = CA.processes().filter { Self.isTarget($0.bundleID) && $0.pid != me }
+        let targets = processes.map(\.object).sorted()
+        watchProcesses(targets)
+        targetIsPlaying = processes.contains(where: \.isPlaying)
         guard !targets.isEmpty, let output = CA.defaultOutput() else {
+            cancelIdleTeardown()
             teardown()
             state = .waiting
             return
+        }
+        if targetIsPlaying {
+            cancelIdleTeardown()
+        } else if procID == nil || force {
+            // Nothing to relay and nothing (worth keeping) built: stay down
+            // until Spotify plays. Spotify plays directly meanwhile.
+            cancelIdleTeardown()
+            teardown()
+            state = .paused
+            return
+        } else {
+            scheduleIdleTeardown()
         }
         if !force, targets == tapped, output == outputDevice, procID != nil { return }
         teardown()
@@ -252,6 +281,48 @@ final class Router {
                 }
             }
         }
+    }
+
+    private func scheduleIdleTeardown() {
+        guard idleTeardown == nil else { return }
+        let work = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.idleTeardown = nil
+            let me = getpid()
+            let playing = CA.processes().contains { Self.isTarget($0.bundleID) && $0.pid != me && $0.isPlaying }
+            guard self.enabled, !playing, case .running = self.state else { return }
+            Self.event("Spotify quiet for \(Int(Self.idleTeardownDelay)) s: tearing down until it plays")
+            self.teardown()
+            self.targetIsPlaying = false
+            self.state = .paused
+        }
+        idleTeardown = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.idleTeardownDelay, execute: work)
+    }
+
+    private func cancelIdleTeardown() {
+        idleTeardown?.cancel()
+        idleTeardown = nil
+    }
+
+    /// Main thread. Listens to "is playing" on exactly these processes.
+    private func watchProcesses(_ objects: [AudioObjectID]) {
+        guard objects != watchedProcesses else { return }
+        for listener in processListeners { listener.remove() }
+        // Measured (macOS 27): IsRunningOutput, which `isPlaying` reads, never
+        // notifies; IsRunning does, on every play and pause. Listen to both.
+        processListeners = objects.flatMap { object in
+            [kAudioProcessPropertyIsRunning, kAudioProcessPropertyIsRunningOutput].compactMap { selector in
+                PropertyListener(object, CA.address(selector)) { [weak self] in
+                    // Straight away, not debounced: on resume every moment
+                    // before the tap is up plays unspatialized. Keep a
+                    // pending forced rebuild forced.
+                    guard let self else { return }
+                    self.refresh(force: self.pendingForce)
+                }
+            }
+        }
+        watchedProcesses = objects
     }
 
     /// Core Audio fires several notifications per change; settle first.
@@ -292,6 +363,10 @@ final class Router {
     private func unwatch() {
         for listener in listeners { listener.remove() }
         listeners.removeAll()
+        for listener in processListeners { listener.remove() }
+        processListeners.removeAll()
+        watchedProcesses = []
+        cancelIdleTeardown()
         pending?.cancel()
         pending = nil
         pendingForce = false

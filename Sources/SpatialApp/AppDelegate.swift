@@ -153,9 +153,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func refreshIcon() {
-        if case .running = router.state {
+        switch router.state {
+        case .running, .paused:
             item.button?.appearsDisabled = false
-        } else {
+        default:
             item.button?.appearsDisabled = true
         }
     }
@@ -244,6 +245,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         switch router.state {
         case .off: return "Off: Spotify plays as usual"
         case .waiting: return "Waiting for Spotify"
+        case .paused: return "Spotify paused: on standby"
         case let .running(device, rate, _): return "Spotify → \(device) · \(Int(rate / 1000)) kHz"
         case .needsPermission: return "Needs System Audio Recording to hear Spotify"
         case let .airPlay(device): return "\(device) is AirPlay: Spotify plays as usual"
