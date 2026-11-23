@@ -17,26 +17,6 @@ if args.contains("--probe") {
     exit(0)
 }
 
-// Spatial --check-update   (run from inside the app bundle) asks GitHub for
-// the latest release; if it's newer, downloads and checks it the way an
-// update would, and reports. Installs nothing.
-if args.contains("--check-update") {
-    let updater = Updater()
-    updater.onChange = {
-        switch updater.state {
-        case let .ready(version, app): print("ready: \(version) downloaded and verified at \(app.path)"); exit(0)
-        case let .failed(why): print("failed: \(why)"); exit(1)
-        default: break
-        }
-    }
-    updater.check { result in
-        print(result)
-        if case .downloading = updater.state { return }
-        exit(0)
-    }
-    RunLoop.main.run()
-}
-
 let app = NSApplication.shared
 let delegate = AppDelegate()
 app.delegate = delegate

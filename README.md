@@ -5,7 +5,7 @@
 <p align="center"><b>Spatial Audio for Spotify on the Mac.</b><br>
 Fixed and Head Tracked from Control Center, rendered by macOS itself.</p>
 
-<p align="center"><a href="https://github.com/matthewhamilton3141/spatial/releases/latest/download/Spatial.zip"><b>Download Spatial</b></a> · free · open source</p>
+<p align="center">Fork of <a href="https://github.com/matthewhamilton3141/spatial">matthewhamilton3141/spatial</a> without the self-updater; build from source.</p>
 
 ---
 
@@ -23,32 +23,25 @@ Personalized Spatial Audio profile if you've set one up.
 
 ## Install
 
-Paste this into Terminal:
+This fork has no prebuilt releases, no installer script and no auto-updater:
+build it yourself (needs only the Command Line Tools).
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/matthewhamilton3141/spatial/main/install.sh | sh
+./build.sh
+cp -R build/Spatial.app /Applications/
+open /Applications/Spatial.app
 ```
 
-It downloads the latest release, puts Spatial in Applications, and opens it. From then on
-Spatial keeps itself up to date. A copy that
-arrives through curl isn't quarantined, so there's no Open Anyway step. (Options:
-`SPATIAL_INSTALL_DIR=~/Applications` or `SPATIAL_NO_OPEN=1` in front of `sh`. The script
-is [install.sh](install.sh).)
+To update: `git pull` (or merge reviewed changes from `upstream`), rebuild, copy again.
+Each rebuild is ad-hoc signed, so macOS asks for System Audio Recording again.
 
 Then:
 
-1. Play something in Spotify. When macOS asks, allow **System Audio Recording**. That's how
-   Spatial takes Spotify's sound. Nothing is recorded, saved, or sent anywhere. (Clicked
-   Don't Allow? Spotify keeps playing as usual; Spatial's menu has **Allow in System Settings…**.)
+1. Play something in Spotify. When macOS asks, allow **System Audio Recording**.
 2. Open **Control Center › your AirPods › Spatial Audio** and pick **Fixed** or **Head Tracked**.
 
-**Or by hand:** [download Spatial.zip](https://github.com/matthewhamilton3141/spatial/releases/latest/download/Spatial.zip),
-unzip it, and drag **Spatial** into Applications. Spatial isn't notarized by Apple yet, so
-macOS blocks a downloaded copy the first time: go to **System Settings › Privacy & Security**,
-scroll down, and click **Open Anyway**.
-
 **Uninstall:** choose Quit Spatial in its menu and drag it to the Trash. To also clear its
-permission and settings: `tccutil reset All local.spatial; defaults delete local.spatial`.
+permission and settings: `tccutil reset All com.srode.spatial; defaults delete com.srode.spatial`.
 
 Spatial lives in the menu bar (the dotted diamond). The **Spatial Audio** switch at the top
 of its menu turns it off, and Spotify goes straight back to normal: no reroute, no extra delay.
@@ -79,14 +72,7 @@ within -100 dB.
 **The recording indicator.** macOS may show its recording indicator while Spatial runs,
 because taking another app's sound uses the same permission as recording it.
 
-**Updates.** Once a day Spatial asks GitHub whether there's a newer version. If there is, it
-downloads it, checks it's genuine, and swaps it in once Spotify has been quiet for a couple
-of minutes (its menu also offers **Update to …** right away). Each new version asks for
-System Audio Recording once more: Spatial isn't signed with an Apple Developer ID, so macOS
-can't tell a new version is the same app. To turn updates off:
-`defaults write local.spatial autoUpdate -bool false`.
-
-**Other apps.** `defaults write local.spatial target <bundle id prefix>`, then relaunch Spatial.
+**Other apps.** `defaults write com.srode.spatial target <bundle id prefix>`, then relaunch Spatial.
 
 ## How it works
 

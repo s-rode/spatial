@@ -101,7 +101,7 @@ final class Router {
     }
 
     /// Bundle ID prefix of the app to spatialize. Spotify's audio helpers
-    /// share the prefix. Change with `defaults write local.spatial target <id>`.
+    /// share the prefix. Change with `defaults write com.srode.spatial target <id>`.
     let target = UserDefaults.standard.string(forKey: "target") ?? "com.spotify.client"
 
     private(set) var state = State.off { didSet { if state != oldValue { onChange?() } } }

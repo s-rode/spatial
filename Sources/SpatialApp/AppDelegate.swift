@@ -29,9 +29,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let router = Router(engine: Settings.engine)
     private let motion = HeadMotion()
     private var silentSeconds = 0
-    /// How long Spotify has been quiet: updates install themselves only then.
-    private var quietSeconds = 0
-    private let updater = Updater()
     private var meter: Timer?
     private var monitor: OutputMonitor?
     private var launchedAsLoginItem = false
@@ -53,9 +50,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         // One Spatial at a time: two would each tap Spotify and play it
         // twice, a few ms apart. The newest launch wins, so opening a new
-        // copy (an update, or one from Downloads) replaces the old one.
+        // copy (a rebuild, or one from Downloads) replaces the old one.
         let me = NSRunningApplication.current
-        let others = NSRunningApplication.runningApplications(withBundleIdentifier: Bundle.main.bundleIdentifier ?? "local.spatial")
+        let others = NSRunningApplication.runningApplications(withBundleIdentifier: Bundle.main.bundleIdentifier ?? "com.srode.spatial")
             .filter { $0.processIdentifier != me.processIdentifier }
         if others.contains(where: { ($0.launchDate ?? .distantPast) > (me.launchDate ?? .distantFuture) }) {
             NSApp.terminate(nil)   // a newer one is starting up
@@ -117,7 +114,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func tick() {
-        // `defaults write local.spatial captureTo <dir>` (+ optional
+        // `defaults write com.srode.spatial captureTo <dir>` (+ optional
         // captureSeconds) records Spotify in vs this app out, live.
         let d = UserDefaults.standard
         d.synchronize()
@@ -133,11 +130,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             silentSeconds += 1
         } else {
             silentSeconds = 0
-        }
-        quietSeconds = playing ? 0 : quietSeconds + 1
-        updater.checkIfDue()
-        if case .ready = updater.state, updater.canInstallInPlace, quietSeconds >= updater.idleSecondsBeforeInstall {
-            updater.install()
         }
         // Spotify playing but nothing heard is what a denied permission
         // looks like; while waiting on the permission, start once it's given.
@@ -236,19 +228,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(engine)
 
         menu.addItem(.separator())
-        switch updater.state {
-        case let .ready(version, _):
-            // Installs by itself once Spotify is quiet; this does it now.
-            let canInstall = updater.canInstallInPlace
-            let update = NSMenuItem(title: canInstall ? "Update to \(version)" : "Spatial \(version) is out…",
-                                    action: canInstall ? #selector(installUpdate) : #selector(openReleases), keyEquivalent: "")
-            update.target = self
-            menu.addItem(update)
-        case let .downloading(version), let .installing(version):
-            menu.addItem(disabled("Updating to \(version)…"))
-        default:
-            break
-        }
         let hide = NSMenuItem(title: "Hide Menu Bar Icon", action: #selector(hideIcon), keyEquivalent: "")
         hide.target = self
         hide.toolTip = "Spatial keeps running. Open Spatial again to bring the icon back."
@@ -271,10 +250,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func openPermissionSettings() {
         NSWorkspace.shared.open(AudioCapturePermission.settingsURL)
     }
-
-    @objc private func installUpdate() { updater.install() }
-
-    @objc private func openReleases() { NSWorkspace.shared.open(Updater.releasesPage) }
 
     private func disabled(_ title: String) -> NSMenuItem {
         let m = NSMenuItem(title: title, action: nil, keyEquivalent: "")

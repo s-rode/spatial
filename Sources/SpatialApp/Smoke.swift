@@ -226,12 +226,6 @@ func runSmokeTest() -> Bool {
         if tapID != kAudioObjectUnknown { AudioHardwareDestroyProcessTap(tapID) }
     }
 
-    // Version order for updates.
-    let newer: [(String, String, Bool)] = [("1.0.2", "1.0.1", true), ("1.0.10", "1.0.9", true), ("1.1", "1.0.9", true),
-                                           ("1.0.1", "1.0.1", false), ("1.0", "1.0.0", false), ("1.0.0", "1.0.1", false),
-                                           ("2.0", "10.0", false)]
-    check("update versions compare as numbers", newer.allSatisfy { Updater.isNewer($0.0, than: $0.1) == $0.2 })
-
     // Core Audio queries the app relies on.
     let output = CA.defaultOutput()
     check("finds the output device", output != nil,

@@ -7,7 +7,9 @@ set -e
 cd "$(dirname "$0")"
 VERSION=1.0.2
 
-swift build -c release
+# Newer SwiftPM (6.4) can fail to initialize its default build system
+# ("Unknown error parsing property list"); fall back to the native one.
+swift build -c release || swift build -c release --build-system native
 
 # App icon, drawn by the same code as the menu bar glyph (Icon.swift).
 # Rebuilt only when the drawing code changes.
@@ -33,7 +35,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 <plist version="1.0">
 <dict>
     <key>CFBundleName</key><string>Spatial</string>
-    <key>CFBundleIdentifier</key><string>local.spatial</string>
+    <key>CFBundleIdentifier</key><string>com.srode.spatial</string>
     <key>CFBundleExecutable</key><string>Spatial</string>
     <key>CFBundleIconFile</key><string>Spatial</string>
     <key>CFBundlePackageType</key><string>APPL</string>

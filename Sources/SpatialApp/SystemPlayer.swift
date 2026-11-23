@@ -681,7 +681,7 @@ final class SystemPlayer {
         targetLead = override > 0 ? override : outputLatency + Self.margin
         trimming = d.object(forKey: "trimLatency") as? Bool ?? true
         // Experiment: how the renderer stretches audio when it changes speed
-        // to re-sync (`defaults write local.spatial timePitch spectral |
+        // to re-sync (`defaults write com.srode.spatial timePitch spectral |
         // timeDomain | varispeed`). Unset leaves Apple's default.
         if let name = d.string(forKey: "timePitch") {
             let algorithm: AVAudioTimePitchAlgorithm? = switch name {
