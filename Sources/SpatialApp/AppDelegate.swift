@@ -13,7 +13,7 @@ struct Settings {
         set { d.set(newValue.rawValue, forKey: "engine") }
     }
     static var headTracking: HeadTracking {
-        get { HeadTracking(rawValue: d.string(forKey: "headTracking") ?? "") ?? .builtIn }
+        get { HeadTracking(rawValue: d.string(forKey: "headTracking") ?? "") ?? .off }
         set { d.set(newValue.rawValue, forKey: "headTracking") }
     }
     /// The menu bar icon is hidden; opening Spatial again brings it back.
@@ -139,6 +139,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // looks like; while waiting on the permission, start once it's given.
         if silentSeconds >= 2 || router.state == .needsPermission { router.checkPermission() }
         if args.contains("--log") {
+            // The monitor is a tap too (it lights the recording indicator):
+            // only keep it while the router itself is tapping.
+            if case .running = router.state {} else if let m = monitor { m.stop(); monitor = nil }
             if monitor == nil, !args.contains("--no-monitor"), case .running = router.state {
                 let m = OutputMonitor()
                 do { try m.start(); monitor = m } catch {
